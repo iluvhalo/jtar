@@ -1,0 +1,73 @@
+Pack:
+1. tar cvf tarfile [files]
+	jtar c [files] > tarfile
+
+Extract:
+2. tar xpfv tarfile
+	jtar x < tarfile
+
+1.	parse command line arguments
+2. x is extract c is create
+3. 2 functions actracttar() and createTar()
+4. processFiles(file, dllist) processes command line argument which checks fo errors
+5. struct stat; BIR *dir
+6.		call lstat(file, &buf)
+7.		S_ISDIR(buf.st_mode) checks if file is a directory
+			if exists
+				create a list of all subdirs and files
+			close dir
+			traverse the list and recursively call processFiles() on everything
+		
+		S_ISREG(buf.st_mode) check if reg file
+			
+8.	traverse files in dllist 
+		fileName = real_path(str, NULL)
+		5 jrbs 
+		if dir store in jrb dirs and jrb realPath
+
+		else 
+			inode_number = bu.st_ino
+			if !in inode tree
+				stor path in jrb real_path, jrb files, and jrb inode
+			else in inode tree
+				store in jrb hardLink, and jrb realPath
+
+9. WRiting
+	write the dirs
+		write size, name, struct stat buf info
+	write files
+		for each file, write the contents of each files
+		write size, name, struct stat buf info
+	write hardLinks
+		write size, name, struct stat buf info
+
+10. EXTRACTING
+	go in reverse order
+	create the 5 jrb's: tmp, dirs, files, inode, hardLinks
+	while(read size)
+		read fileName
+		read stat
+		if file write contents
+
+		if dir
+			mkdir() put in jrb dirs
+		else if not in inode <- is a file
+			recreate dfile/ contents and put into jrb files
+		else put file into hardLinks
+
+//	traverse jrbs
+//		use chmod(), utime(), and link()
+
+11.recreate time, permissions
+		time_buf
+		files
+			tim_buf.ooltime = buf->st_time
+			tim_buf.modtime = buf->st_mtime
+			utime(file, 
+			chmod(file, buf->st_mode)
+
+		links
+		link()
+		repeat process above for each
+
+		dirs
