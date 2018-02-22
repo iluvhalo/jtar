@@ -5,6 +5,7 @@ Pack:
 Extract:
 2. tar xpfv tarfile
 	jtar x < tarfile
+	
 
 1.	parse command line arguments
 2. x is extract c is create
