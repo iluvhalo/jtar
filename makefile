@@ -26,4 +26,3 @@ fakemake: fakemake.o
 clean:
 	rm core* $(EXECUTABLES) *.o
 
-
