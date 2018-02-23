@@ -4,6 +4,8 @@
 #include <fields.h>
 #include <jval.h>
 #include <jrb.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 int process_files(char *s);
 
@@ -25,5 +27,14 @@ int main (int argc, char **argv) {
       exit(1);
    }
 
+   for (i = 2; i < argc; i++) {
+      process_files(argv[i]);
+   }
+
 	return 0;
+}
+
+int process_files(char *s) {
+   printf("File: %s\n", s);
+
 }

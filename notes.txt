@@ -11,7 +11,7 @@ Extract:
 2. x is extract c is create
 3. 2 functions actracttar() and createTar()
 4. processFiles(file, dllist) processes command line argument which checks fo errors
-5. struct stat; BIR *dir
+5. struct stat buf; DIR *dir
 6.		call lstat(file, &buf)
 7.		S_ISDIR(buf.st_mode) checks if file is a directory
 			if exists
