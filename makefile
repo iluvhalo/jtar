@@ -18,7 +18,7 @@ all: $(EXECUTABLES)
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c
 
-fakemake: fakemake.o
+jtar: jtar.o
 	$(CC) $(CFLAGS) -o jtar jtar.o $(LIBS)
 
 #make clean will rid your directory of the executable,
