@@ -61,6 +61,7 @@ int createTar(int argc, char **argv, char print) {
 
    printf("Argument: %d\n", print);
 
+   // call process_files() on all the command line files 
    for (i = 2; i < argc; i++) {
       printf("File: %s\n", argv[i]);
       process_files(argv[i], d);
@@ -85,6 +86,9 @@ int process_files(char *s, Dllist d) {
    struct dirent *de;
    int exists;
    char *path;
+   char p;
+   Dllist tmp;
+   char *name;
    
    printf("Processing file: %s\n", s);
 
@@ -105,16 +109,30 @@ int process_files(char *s, Dllist d) {
 
          path = (char *) malloc(sizeof(char) * (strlen(s) + 258));
 
+         // iterate through the contents of the directory and add them to the dllist
          for (de = readdir(dir); de != NULL; de = readdir(dir)) {
             sprintf(path, "%s/%s", s, de->d_name);
-            printf("%s is the subdir or file within %s\n", de->d_name, s);
+            printf("    File: %s\n", de->d_name);
             printf("    path: %s\n", path);
             exists = lstat(path, &buf);
+            if (S_ISDIR(buf.st_mode)) {
+               printf("    %s is a directory\n", path);
+            } else {
+               printf("    %s is a file\n", path);
+            }
             if (exists < 0) {
                fprintf(stderr, "Couldn't stat %s\n", path);
                exit(1);
             } else if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0)) {
                printf("   do things\n");
+               p = 0;
+               dll_traverse(tmp, d) {
+                  if (strcmp(tmp->val.s, path) == 0) p = 1;
+               }
+               if (p == 0) {
+                  dll_append(d, new_jval_s(path));
+                  printf("   adding %s to the dllist\n", path);
+               }
             } else {
                printf("   %s is skipped over\n", de->d_name);
             }
@@ -122,8 +140,20 @@ int process_files(char *s, Dllist d) {
 
          closedir(dir);
 
+         dll_traverse(tmp, d) {
+            name = strdup(tmp->val.s);
+
+            printf("calling process_files() on %s\n", name);
+            //dll_delete_node(tmp);
+            process_files(name, d);
+         }
+
+         free_dllist(d);
+
+
       } else if (S_ISREG(buf.st_mode)) {
          printf("%s is a file\n", s);
+         printf("   do nothing\n");
       } else {
          printf("I SHOULD NOT SEE THIS AT ALL                        \n");
          printf("              _                                     \n");
