@@ -101,7 +101,7 @@ int process_files(char *s, Dllist d) {
       printf("S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
       printf("S_ISREG: %d\n", S_ISREG(buf.st_mode));
       if (S_ISDIR(buf.st_mode)) {
-         printf("%s is a directory\n", s);
+         printf("  %s is a directory\n", s);
          
          dir = opendir(s);
          if (dir == NULL) {
@@ -122,8 +122,8 @@ int process_files(char *s, Dllist d) {
 
             exists = lstat(rPath, &buf);
             
-            printf("S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
-            printf("S_ISREG: %d\n", S_ISREG(buf.st_mode));
+            printf("    S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
+            printf("    S_ISREG: %d\n", S_ISREG(buf.st_mode));
             if (S_ISDIR(buf.st_mode)) {
                printf("    %s is a directory\n", rPath);
             } else {
@@ -144,18 +144,18 @@ int process_files(char *s, Dllist d) {
                dll_traverse(tmp, d) {
                   if (strcmp(tmp->val.s, rPath) == 0) {
                      p = 1;
-                     printf("  already in dllist\n    tmp->val.s: %s    path: %s\n", tmp->val.s, rPath);
+                     printf("      already in dllist\n    tmp->val.s: %s    path: %s\n", tmp->val.s, rPath);
                   }
                }
 
                // if not, add it
                if (p == 0) {
                   dll_append(d, new_jval_s(rPath));
-                  printf("   adding %s to the dllist\n", rPath);
+                  printf("    adding %s to the dllist\n", rPath);
                }
 
             } else {
-               printf("   %s is skipped over\n", de->d_name);
+               printf("    %s is skipped over\n", de->d_name);
             }
          }
 
@@ -163,15 +163,17 @@ int process_files(char *s, Dllist d) {
 
          // traverse the dllist and call process_files on everything
          dll_traverse(tmp, d) {
-            name = strdup(tmp->val.s);
+            if (tmp != NULL) {
+               name = strdup(tmp->val.s);
 
-            printf("calling process_files() on %s\n", name);
-            dll_delete_node(tmp);
-            process_files(name, d);
+               printf("    calling process_files() on %s\n", name);
+               //dll_delete_node(tmp);
+               process_files(name, d);
+            }
          }
       } else if (S_ISREG(buf.st_mode)) {
-         printf("%s is a file\n", s);
-         printf("   do nothing\n");
+         printf("  %s is a file\n", s);
+         printf("  do nothing\n");
          return;
       } else {
          printf("I SHOULD NOT SEE THIS AT ALL                        \n");
