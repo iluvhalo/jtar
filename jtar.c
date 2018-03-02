@@ -10,7 +10,7 @@
 
 int extractTar(int argc, char **argv, char print);
 int createTar(int argc, char **argv, char print);
-int process_files(char *file, Dllist d);
+int process_files(char *file, Dllist d, Dllist p);
 
 int main (int argc, char **argv) {
    int i;
@@ -28,6 +28,11 @@ int main (int argc, char **argv) {
       gucci = 1;
    }
    if (gucci != 1) {
+      fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
+      exit(1);
+   }
+
+   if (strcmp(argv[2], "..") == 0) {
       fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
       exit(1);
    }
@@ -54,16 +59,19 @@ int main (int argc, char **argv) {
 // into their respective dllists (dirs, files, inode, hardlinks)
 int createTar(int argc, char **argv, char print) {
    int i;
-   Dllist d;
+   Dllist d, p;
 
    d = new_dllist();
+   p = new_dllist();
 
    printf("Argument: %d\n", print);
 
    // call process_files() on all the command line files 
    for (i = 2; i < argc; i++) {
+      if (strcmp( (argv[i] + strlen(argv[i]) - 1), "/") == 0) argv[i][strlen(argv[i]) - 1] = '\0';
       printf("File: %s\n", argv[i]);
-      process_files(argv[i], d);
+      dll_append(p, new_jval_s(argv[i]));
+      process_files(argv[i], d, p);
    }
 }
 
@@ -79,15 +87,15 @@ int extractTar(int argc, char **argv, char print) {
    }
 }
 
-int process_files(char *s, Dllist d) {
+int process_files(char *s, Dllist d, Dllist p) {
    DIR *dir;
    struct stat buf;
    struct dirent *de;
    int exists;
    char *path;
    char *rPath;
-   char p;
-   Dllist tmp;
+   char p1;
+   Dllist tmp, ptmp;
    char *name;
    
    printf("Processing file: %s\n", s);
@@ -140,16 +148,16 @@ int process_files(char *s, Dllist d) {
                printf("    try to add to dllist\n");
 
                // check if it already in the dllist
-               p = 0;
+               p1 = 0;
                dll_traverse(tmp, d) {
                   if (strcmp(tmp->val.s, rPath) == 0) {
-                     p = 1;
+                     p1 = 1;
                      printf("      already in dllist\n    tmp->val.s: %s    path: %s\n", tmp->val.s, rPath);
                   }
                }
 
                // if not, add it
-               if (p == 0) {
+               if (p1 == 0) {
                   dll_append(d, new_jval_s(rPath));
                   printf("    adding %s to the dllist\n", rPath);
                }
@@ -163,12 +171,18 @@ int process_files(char *s, Dllist d) {
 
          // traverse the dllist and call process_files on everything
          dll_traverse(tmp, d) {
-            if (tmp != NULL) {
+            p1 = 0;
+            dll_traverse(ptmp, p) {
+               if (strcmp(ptmp->val.s, tmp->val.s) == 0) p1 = 1;
+            }
+            if ((tmp != NULL) && (p1 == 0)) {
                name = strdup(tmp->val.s);
+
+               dll_append(p, new_jval_s(name));
 
                printf("    calling process_files() on %s\n", name);
                //dll_delete_node(tmp);
-               process_files(name, d);
+               process_files(name, d, p);
             }
          }
       } else if (S_ISREG(buf.st_mode)) {
