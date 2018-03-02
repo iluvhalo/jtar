@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dllist.h>
-//#include <fields.h>
 #include <jval.h>
 #include <jrb.h>
 #include <sys/stat.h>
@@ -86,6 +85,7 @@ int process_files(char *s, Dllist d) {
    struct dirent *de;
    int exists;
    char *path;
+   char *rPath;
    char p;
    Dllist tmp;
    char *name;
@@ -98,6 +98,8 @@ int process_files(char *s, Dllist d) {
       printf("%s does not exist\n", s);
       return -1;
    } else {
+      printf("S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
+      printf("S_ISREG: %d\n", S_ISREG(buf.st_mode));
       if (S_ISDIR(buf.st_mode)) {
          printf("%s is a directory\n", s);
          
@@ -107,32 +109,51 @@ int process_files(char *s, Dllist d) {
             exit(1);
          }
 
-         path = (char *) malloc(sizeof(char) * (strlen(s) + 258));
+         path = (char *) malloc((strlen(s) + 258) * sizeof(char));
 
          // iterate through the contents of the directory and add them to the dllist
          for (de = readdir(dir); de != NULL; de = readdir(dir)) {
+            
             sprintf(path, "%s/%s", s, de->d_name);
             printf("    File: %s\n", de->d_name);
             printf("    path: %s\n", path);
-            exists = lstat(path, &buf);
+            
+            rPath = strdup(path);
+
+            exists = lstat(rPath, &buf);
+            
+            printf("S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
+            printf("S_ISREG: %d\n", S_ISREG(buf.st_mode));
             if (S_ISDIR(buf.st_mode)) {
-               printf("    %s is a directory\n", path);
+               printf("    %s is a directory\n", rPath);
             } else {
-               printf("    %s is a file\n", path);
+               printf("    %s is a file\n", rPath);
             }
+
             if (exists < 0) {
-               fprintf(stderr, "Couldn't stat %s\n", path);
+
+               fprintf(stderr, "Couldn't stat %s\n", rPath);
                exit(1);
+
             } else if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0)) {
-               printf("   do things\n");
+               // ignore . and ..
+               printf("    try to add to dllist\n");
+
+               // check if it already in the dllist
                p = 0;
                dll_traverse(tmp, d) {
-                  if (strcmp(tmp->val.s, path) == 0) p = 1;
+                  if (strcmp(tmp->val.s, rPath) == 0) {
+                     p = 1;
+                     printf("  already in dllist\n    tmp->val.s: %s    path: %s\n", tmp->val.s, rPath);
+                  }
                }
+
+               // if not, add it
                if (p == 0) {
-                  dll_append(d, new_jval_s(path));
-                  printf("   adding %s to the dllist\n", path);
+                  dll_append(d, new_jval_s(rPath));
+                  printf("   adding %s to the dllist\n", rPath);
                }
+
             } else {
                printf("   %s is skipped over\n", de->d_name);
             }
@@ -140,20 +161,18 @@ int process_files(char *s, Dllist d) {
 
          closedir(dir);
 
+         // traverse the dllist and call process_files on everything
          dll_traverse(tmp, d) {
             name = strdup(tmp->val.s);
 
             printf("calling process_files() on %s\n", name);
-            //dll_delete_node(tmp);
+            dll_delete_node(tmp);
             process_files(name, d);
          }
-
-         free_dllist(d);
-
-
       } else if (S_ISREG(buf.st_mode)) {
          printf("%s is a file\n", s);
          printf("   do nothing\n");
+         return;
       } else {
          printf("I SHOULD NOT SEE THIS AT ALL                        \n");
          printf("              _                                     \n");
@@ -162,5 +181,4 @@ int process_files(char *s, Dllist d) {
          printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~                        \n");
       }
    }
-
 }
