@@ -32,7 +32,7 @@ int main (int argc, char **argv) {
       exit(1);
    }
 
-   if (strcmp(argv[2], "..") == 0) {
+   if (strncmp(argv[2], "..", 2) == 0) {
       fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
       exit(1);
    }
@@ -59,9 +59,9 @@ int main (int argc, char **argv) {
 // into their respective dllists (dirs, files, inode, hardlinks)
 int createTar(int argc, char **argv, char print) {
    int i;
-   Dllist d, p;
+   Dllist tmp, contents, p;
 
-   d = new_dllist();
+   contents = new_dllist();
    p = new_dllist();
 
    printf("Argument: %d\n", print);
@@ -71,8 +71,15 @@ int createTar(int argc, char **argv, char print) {
       if (strcmp( (argv[i] + strlen(argv[i]) - 1), "/") == 0) argv[i][strlen(argv[i]) - 1] = '\0';
       printf("File: %s\n", argv[i]);
       dll_append(p, new_jval_s(argv[i]));
-      process_files(argv[i], d, p);
+      fprintf(stderr, "Adding file %s to dllist, p\n", argv[i]);
+      process_files(argv[i], contents, p);
    }
+
+   fprintf(stderr, "dllist contents:\n");
+   dll_traverse(tmp, contents) fprintf(stderr, "  %s\n", tmp->val.s);
+   fprintf(stderr, "dllist P:\n");
+   dll_traverse(tmp, p) fprintf(stderr, "  %s\n", tmp->val.s);
+   free_dllist(p);
 }
 
 int extractTar(int argc, char **argv, char print) {
@@ -100,6 +107,12 @@ int process_files(char *s, Dllist d, Dllist p) {
    
    printf("Processing file: %s\n", s);
 
+   // fuck-up insurance
+   if (strcmp(s + strlen(s) - 6, "jtar.c") == 0) {
+      fprintf(stderr, "Don't call jtar on a directory connected to jtar.c you fucking idiot.\n");
+      exit(1);
+   }
+
    exists = lstat(s, &buf);
 
    if (exists < 0) {
@@ -125,9 +138,7 @@ int process_files(char *s, Dllist d, Dllist p) {
             sprintf(path, "%s/%s", s, de->d_name);
             printf("    File: %s\n", de->d_name);
             printf("    path: %s\n", path);
-            
             rPath = strdup(path);
-
             exists = lstat(rPath, &buf);
             
             printf("    S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
@@ -139,10 +150,8 @@ int process_files(char *s, Dllist d, Dllist p) {
             }
 
             if (exists < 0) {
-
                fprintf(stderr, "Couldn't stat %s\n", rPath);
                exit(1);
-
             } else if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0)) {
                // ignore . and ..
                printf("    try to add to dllist\n");
@@ -159,7 +168,7 @@ int process_files(char *s, Dllist d, Dllist p) {
                // if not, add it
                if (p1 == 0) {
                   dll_append(d, new_jval_s(rPath));
-                  printf("    adding %s to the dllist\n", rPath);
+                  printf("    adding %s to the dllist, d\n", rPath);
                }
 
             } else {
@@ -179,6 +188,7 @@ int process_files(char *s, Dllist d, Dllist p) {
                name = strdup(tmp->val.s);
 
                dll_append(p, new_jval_s(name));
+               printf("    adding %s to the dllist, d\n", name);
 
                printf("    calling process_files() on %s\n", name);
                //dll_delete_node(tmp);
