@@ -61,8 +61,10 @@ int createTar(int argc, char **argv, char print) {
    Dllist tmp, contents, p;
    JRB t, dirs, files, inode, hardLinks, realPath;
    char *fileName, *filePath;
+   char *file;
    struct stat buf, *bufp;
    ino_t inodeNumber;
+   int fd;
 
    if (strncmp(argv[2], "..", 2) == 0) {
       fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
@@ -138,26 +140,43 @@ int createTar(int argc, char **argv, char print) {
    jrb_traverse(t, dirs) {
       fileName = t->key.s;
       stat(fileName, &buf);
-      printf("%s ", fileName);
-      printf("%lld\n", buf.st_size);
-      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      //printf("%s ", fileName);
+      //printf("%lld\n", buf.st_size);
+      //fwrite(&buf, sizeof(struct stat), 1, stdout);
       printf(" ");
    }
    jrb_traverse(t, files) {
       fileName = t->val.s;
       stat(fileName, &buf);
-      printf("%s ", fileName);
-      printf("%lld\n", buf.st_size);
-      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      //printf("%s ", fileName);
+      //printf("%lld\n", buf.st_size);
+      //fwrite(&buf, sizeof(struct stat), 1, stdout);
+      
+      fd = open(fileName, O_RDONLY);
+      file = malloc(buf.st_size);
+      read(fd, file, buf.st_size);
+      printf("file %s", file);
+      //write(stdout, file, strlen(file));
+      close(fd);
+      
       printf(" ");
       remove(fileName);
+      free(file);
    }
    jrb_traverse(t, hardLinks) {
       fileName = t->key.s;
       stat(fileName, &buf);
-      printf("%s ", fileName);
-      printf("%lld\n", buf.st_size);
-      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      //printf("%s ", fileName);
+      //printf("%lld\n", buf.st_size);
+      //fwrite(&buf, sizeof(struct stat), 1, stdout);
+      
+      fd = open(fileName, O_RDONLY);
+      file = malloc(buf.st_size);
+      read(fd, file, buf.st_size);
+      printf("file %s", file);
+      //write(stdout, file, strlen(file));
+      close(fd);
+      
       printf(" ");
       remove(fileName);
    }
@@ -175,6 +194,9 @@ int extractTar(int argc, char **argv, char print) {
    off_t fileSize;
    struct stat buf;
    int fd;
+   ino_t inodeNumber;
+
+   dirs = make_jrb(); files = make_jrb(); inode = make_jrb(); hardLinks = make_jrb();
 
    is = new_inputstruct(NULL);
 
@@ -187,12 +209,22 @@ int extractTar(int argc, char **argv, char print) {
       if (S_ISREG(buf.st_mode)) {
          printf("%s is a regular file.\nRead contents of file\n", fileName);
          fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-         close(fd);
+         //close(fd);
       }
       if (S_ISDIR(buf.st_mode)) {
          printf("%s is a directory\n", fileName);
          mkdir(fileName, 0777);
+         jrb_insert_str(dirs, fileName, new_jval_v(buf));
       }
+      inodeNumber = buf.st_ino;
+      if (jrb_find_int(inode, inodeNumber) == NULL) {
+         printf("   not found in inode\n");
+         jrb_insert_int(inode, inodeNumber, new_jval_i(inodeNumber));
+         jrb_insert_str(files, fileName, new_jval_v(buf));
+      } else {
+         printf("   This is a hardlink\n");
+      }
+
    }
    printf("Done reading tarfile\n");
 }
