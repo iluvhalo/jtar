@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <string.h>
+#include <unistd.h>
 
 int extractTar(int argc, char **argv, char print);
 int createTar(int argc, char **argv, char print);
@@ -134,16 +135,11 @@ int createTar(int argc, char **argv, char print) {
    // treverse jrbs
    jrb_traverse(t, dirs) {
       fileName = t->key.s;
-//      buf = t->val.v;
       stat(fileName, &buf);
-//      bufp = t->val.v;
-//      buf = *bufp;
       printf("%s\n", fileName);
-      //printf("%s\n", tmp->val.v);
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
       printf("\n");
-      remove(fileName);
    }
    jrb_traverse(t, files) {
       fileName = t->val.s;
@@ -152,6 +148,7 @@ int createTar(int argc, char **argv, char print) {
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
       printf("\n");
+      remove(fileName);
    }
    jrb_traverse(t, hardLinks) {
       fileName = t->key.s;
@@ -160,18 +157,27 @@ int createTar(int argc, char **argv, char print) {
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
       printf("\n");
+      remove(fileName);
+   }
+   jrb_rtraverse(t, dirs) {
+      fileName = t->key.s;
+      remove(fileName);
    }
 } // end of createTar
 
 int extractTar(int argc, char **argv, char print) {
    int i;
-   Dllist d;
+   JRB tmp, dirs, files, hardLinks, inode;
+   char line[1000];
+   char *fileName;
+   off_t fileSize;
+   struct stat buf;
 
-//   printf("Argument: %d\n", print);
-
-   for (i = 2; i < argc; i++) {
-//      printf("File: %s\n", argv[i]);
-//      process_files(argv[i], d);
+   memset(line, 0, 1000 * sizeof(char));
+   while (scanf("%s\n%lld", fileName, fileSize)) {
+      printf("Read Name: %s\nRead Size: %lld", fileName, fileSize);
+      read(stdin, &buf, sizeof(buf));
+      memset(line, 0, 1000 * sizeof(char));
    }
 }
 
