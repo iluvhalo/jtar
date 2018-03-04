@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int extractTar(int argc, char **argv, char print);
 int createTar(int argc, char **argv, char print);
@@ -173,22 +174,25 @@ int extractTar(int argc, char **argv, char print) {
    char *fileName;
    off_t fileSize;
    struct stat buf;
+   int fd;
 
    is = new_inputstruct(NULL);
 
-   //memset(line, 0, 1000 * sizeof(char));
-   //while (read(0, &line, 1000)) {
-   //while (sscanf("%s %lld", fileName, &fileSize) == 2) {
    while (get_line(is) >= 0) {
       fileName = is->fields[0];
       fileSize = atoi(is->fields[1]);
-      //printf("%s\n", line);
-      //sscanf(line, "%s %lld", fileName, fileSize);
-      printf("Read Name: %s\nRead Size: %lld", fileName, fileSize);
-      //read(0, &buf, sizeof(struct stat));
+      printf("Read Name: %s\nRead Size: %lld\n", fileName, fileSize);
       fread(&buf, sizeof(struct stat), 1, stdin);
-      printf("st_mtime: %lld\n", buf.st_mtime);
-      //memset(line, 0, 1000 * sizeof(char));
+      printf("st_size: %lld\n", buf.st_size);
+      if (S_ISREG(buf.st_mode)) {
+         printf("%s is a regular file.\nRead contents of file\n", fileName);
+         fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+         close(fd);
+      }
+      if (S_ISDIR(buf.st_mode)) {
+         printf("%s is a directory\n", fileName);
+         mkdir(fileName, 0777);
+      }
    }
    printf("Done reading tarfile\n");
 }
