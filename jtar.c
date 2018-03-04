@@ -62,7 +62,7 @@ int createTar(int argc, char **argv, char print) {
    int i, exists;
    Dllist tmp, contents, p;
    JRB t, dirs, files, inode, hardLinks, realPath;
-   char *fileName;
+   char *fileName, *filePath;
    struct stat buf, *bufp;
    ino_t inodeNumber;
 
@@ -94,7 +94,8 @@ int createTar(int argc, char **argv, char print) {
 
    // traverse contents and push all the information into jrb's
    dll_traverse(tmp, contents) {
-      fileName = realpath(tmp->val.s, NULL);
+      fileName = tmp->val.s;
+      filePath = realpath(tmp->val.s, NULL);
       if (print) fprintf(stderr, "fileName: %s\n", fileName);
 
       exists = lstat(fileName, &buf);
@@ -116,13 +117,13 @@ int createTar(int argc, char **argv, char print) {
                if (print) fprintf(stderr, "   %s if a file\n", fileName);
                if (print) fprintf(stderr, "   Inserting %s into jrb files, inode, and realPath\n", fileName);
                jrb_insert_int(inode, inodeNumber, new_jval_i(inodeNumber));
-               jrb_insert_str(realPath, fileName, new_jval_s(fileName));
-               jrb_insert_str(files, fileName, new_jval_v(buf));
+               jrb_insert_str(realPath, fileName, new_jval_s(filePath));
+               jrb_insert_str(files, fileName, new_jval_s(fileName));
             } else {
                if (print) fprintf(stderr, "   %s is a hardlink\n", fileName);
                if (print) fprintf(stderr, "   Inserting %s into jrb realPath and hardLinks\n", fileName);
-               jrb_insert_str(realPath, fileName, new_jval_s(fileName));
-               jrb_insert_str(hardLinks, fileName, new_jval_v(buf));
+               jrb_insert_str(realPath, fileName, new_jval_s(filePath));
+               jrb_insert_str(hardLinks, fileName, new_jval_s(tmp->val.s));
             }
          } else {
             fprintf(stderr, "Something happened.\n");
@@ -133,12 +134,32 @@ int createTar(int argc, char **argv, char print) {
    // treverse jrbs
    jrb_traverse(t, dirs) {
       fileName = t->key.s;
-      exists = stat(fileName, &buf);
+//      buf = t->val.v;
+      stat(fileName, &buf);
 //      bufp = t->val.v;
-  //    buf = *bufp;
-      printf("Directory: %s\n", fileName);
-      printf("   S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
-      printf("   Size: %lld\n", buf.st_size);
+//      buf = *bufp;
+      printf("%s\n", fileName);
+      //printf("%s\n", tmp->val.v);
+      printf("%lld\n", buf.st_size);
+      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      printf("\n");
+      remove(fileName);
+   }
+   jrb_traverse(t, files) {
+      fileName = t->val.s;
+      stat(fileName, &buf);
+      printf("%s\n", fileName);
+      printf("%lld\n", buf.st_size);
+      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      printf("\n");
+   }
+   jrb_traverse(t, hardLinks) {
+      fileName = t->key.s;
+      stat(fileName, &buf);
+      printf("%s\n", fileName);
+      printf("%lld\n", buf.st_size);
+      fwrite(&buf, sizeof(struct stat), 1, stdout);
+      printf("\n");
    }
 } // end of createTar
 
