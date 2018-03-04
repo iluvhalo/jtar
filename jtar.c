@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <fields.h>
 #include <stdlib.h>
 #include <dllist.h>
 #include <jval.h>
@@ -34,11 +35,6 @@ int main (int argc, char **argv) {
       exit(1);
    }
 
-   if (strncmp(argv[2], "..", 2) == 0) {
-      fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
-      exit(1);
-   }
-
    // sets the bool for if to print debug lines to stderr
    print = 0;
    if ((strcmp(argv[1], "cv") == 0) || (strcmp(argv[1], "xv") == 0)) print = 1;
@@ -66,6 +62,11 @@ int createTar(int argc, char **argv, char print) {
    char *fileName, *filePath;
    struct stat buf, *bufp;
    ino_t inodeNumber;
+
+   if (strncmp(argv[2], "..", 2) == 0) {
+      fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
+      exit(1);
+   }
 
    contents = new_dllist();
    p = new_dllist();
@@ -136,27 +137,27 @@ int createTar(int argc, char **argv, char print) {
    jrb_traverse(t, dirs) {
       fileName = t->key.s;
       stat(fileName, &buf);
-      printf("%s\n", fileName);
+      printf("%s ", fileName);
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
-      printf("\n");
+      printf(" ");
    }
    jrb_traverse(t, files) {
       fileName = t->val.s;
       stat(fileName, &buf);
-      printf("%s\n", fileName);
+      printf("%s ", fileName);
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
-      printf("\n");
+      printf(" ");
       remove(fileName);
    }
    jrb_traverse(t, hardLinks) {
       fileName = t->key.s;
       stat(fileName, &buf);
-      printf("%s\n", fileName);
+      printf("%s ", fileName);
       printf("%lld\n", buf.st_size);
       fwrite(&buf, sizeof(struct stat), 1, stdout);
-      printf("\n");
+      printf(" ");
       remove(fileName);
    }
    jrb_rtraverse(t, dirs) {
@@ -166,19 +167,30 @@ int createTar(int argc, char **argv, char print) {
 } // end of createTar
 
 int extractTar(int argc, char **argv, char print) {
-   int i;
+   IS is;
    JRB tmp, dirs, files, hardLinks, inode;
    char line[1000];
    char *fileName;
    off_t fileSize;
    struct stat buf;
 
-   memset(line, 0, 1000 * sizeof(char));
-   while (scanf("%s\n%lld", fileName, fileSize)) {
+   is = new_inputstruct(NULL);
+
+   //memset(line, 0, 1000 * sizeof(char));
+   //while (read(0, &line, 1000)) {
+   //while (sscanf("%s %lld", fileName, &fileSize) == 2) {
+   while (get_line(is) >= 0) {
+      fileName = is->fields[0];
+      fileSize = atoi(is->fields[1]);
+      //printf("%s\n", line);
+      //sscanf(line, "%s %lld", fileName, fileSize);
       printf("Read Name: %s\nRead Size: %lld", fileName, fileSize);
-      read(0, &buf, sizeof(buf));
-      memset(line, 0, 1000 * sizeof(char));
+      //read(0, &buf, sizeof(struct stat));
+      fread(&buf, sizeof(struct stat), 1, stdin);
+      printf("st_mtime: %lld\n", buf.st_mtime);
+      //memset(line, 0, 1000 * sizeof(char));
    }
+   printf("Done reading tarfile\n");
 }
 
 int process_files(char *s, Dllist d, Dllist p, char print) {
