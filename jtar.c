@@ -176,7 +176,7 @@ int extractTar(int argc, char **argv, char print) {
    memset(line, 0, 1000 * sizeof(char));
    while (scanf("%s\n%lld", fileName, fileSize)) {
       printf("Read Name: %s\nRead Size: %lld", fileName, fileSize);
-      read(stdin, &buf, sizeof(buf));
+      read(0, &buf, sizeof(buf));
       memset(line, 0, 1000 * sizeof(char));
    }
 }
