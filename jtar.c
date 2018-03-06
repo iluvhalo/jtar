@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <fields.h>
 #include <stdlib.h>
@@ -12,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <utime.h>
 
 int extractTar(int argc, char **argv, char print);
 int createTar(int argc, char **argv, char print);
@@ -66,6 +66,7 @@ int createTar(int argc, char **argv, char print) {
    struct stat buf, *bufp;
    ino_t inodeNumber;
    int fd;
+   FILE *f;
 
    if (strncmp(argv[2], "..", 2) == 0) {
       fprintf(stderr, "usage: jtar [cxv] [files ...]\n");
@@ -75,15 +76,11 @@ int createTar(int argc, char **argv, char print) {
    contents = new_dllist();
    p = new_dllist();
 
-//   if (print) fprintf(stderr, "Print argument: %d\n", print);
-
    // call process_files() on all the command line files 
    for (i = 2; i < argc; i++) {
       if (strcmp( (argv[i] + strlen(argv[i]) - 1), "/") == 0) argv[i][strlen(argv[i]) - 1] = '\0';
-//      if (print) fprintf(stderr, "File: %s\n", argv[i]);
       dll_append(p, new_jval_s(argv[i]));
       dll_append(contents, new_jval_s(argv[i]));
-//      if (print) fprintf(stderr, "Adding file %s to dllist, p\n", argv[i]);
       process_files(argv[i], contents, p, print);
    }
 
@@ -102,7 +99,6 @@ int createTar(int argc, char **argv, char print) {
    dll_traverse(tmp, contents) {
       fileName = tmp->val.s;
       filePath = realpath(tmp->val.s, NULL);
-      if (print) fprintf(stderr, "fileName: %s\n", fileName);
 
       exists = lstat(fileName, &buf);
 
@@ -111,23 +107,16 @@ int createTar(int argc, char **argv, char print) {
       } else {
          if (S_ISDIR(buf.st_mode)) {
             //is a directory
-            if (print) fprintf(stderr, "   Inserting %s into jrb dirs and jrb realPath\n", fileName);
             jrb_insert_str(dirs, fileName, new_jval_v(buf));
             jrb_insert_str(realPath, fileName, new_jval_s(fileName));
          } else if (S_ISREG(buf.st_mode)) {
             // is a file
-            if (print) fprintf(stderr, "   Check if in inode jrb\n");
             inodeNumber = buf.st_ino;
-            if (print) fprintf(stderr, "   inodeNumber: %d\n", inodeNumber);
             if (jrb_find_int(inode, inodeNumber) == NULL) {
-               if (print) fprintf(stderr, "   %s if a file\n", fileName);
-               if (print) fprintf(stderr, "   Inserting %s into jrb files, inode, and realPath\n", fileName);
                jrb_insert_int(inode, inodeNumber, new_jval_i(inodeNumber));
                jrb_insert_str(realPath, fileName, new_jval_s(filePath));
                jrb_insert_str(files, fileName, new_jval_s(fileName));
             } else {
-               if (print) fprintf(stderr, "   %s is a hardlink\n", fileName);
-               if (print) fprintf(stderr, "   Inserting %s into jrb realPath and hardLinks\n", fileName);
                jrb_insert_str(realPath, fileName, new_jval_s(filePath));
                jrb_insert_str(hardLinks, fileName, new_jval_s(tmp->val.s));
             }
@@ -140,45 +129,52 @@ int createTar(int argc, char **argv, char print) {
    // treverse jrbs
    jrb_traverse(t, dirs) {
       fileName = t->key.s;
-      stat(fileName, &buf);
-      //printf("%s ", fileName);
-      //printf("%lld\n", buf.st_size);
-      //fwrite(&buf, sizeof(struct stat), 1, stdout);
-      printf(" ");
+      lstat(fileName, &buf);
+      printf("%d", strlen(fileName));
+      fwrite(fileName, sizeof(char), strlen(fileName), stdout);
+      fwrite(&buf, sizeof(struct stat), 1, stdout);
    }
    jrb_traverse(t, files) {
       fileName = t->val.s;
-      stat(fileName, &buf);
-      //printf("%s ", fileName);
-      //printf("%lld\n", buf.st_size);
-      //fwrite(&buf, sizeof(struct stat), 1, stdout);
+      lstat(fileName, &buf);
       
-      fd = open(fileName, O_RDONLY);
-      file = malloc(buf.st_size);
-      read(fd, file, buf.st_size);
-      printf("file %s", file);
-      //write(stdout, file, strlen(file));
-      close(fd);
-      
-      printf(" ");
+      f = fopen(fileName, "r");
+      if (f == NULL) {
+         fprintf(stderr, "Problem opening the file\n");
+      } else {
+         printf("%d", strlen(fileName));
+         fwrite(fileName, sizeof(char), strlen(fileName), stdout);
+         fwrite(&buf, sizeof(struct stat), 1, stdout);
+         file = malloc(buf.st_size);
+         while(fread(file, 1, buf.st_size, f) > 0) {
+            fwrite(file, 1, buf.st_size, stdout);
+         }
+         if (file) free(file);
+
+         fclose(f);
+      }
+      //printf(" ");
       remove(fileName);
-      free(file);
+      //free(file);
    }
    jrb_traverse(t, hardLinks) {
       fileName = t->key.s;
-      stat(fileName, &buf);
-      //printf("%s ", fileName);
-      //printf("%lld\n", buf.st_size);
-      //fwrite(&buf, sizeof(struct stat), 1, stdout);
-      
-      fd = open(fileName, O_RDONLY);
-      file = malloc(buf.st_size);
-      read(fd, file, buf.st_size);
-      printf("file %s", file);
-      //write(stdout, file, strlen(file));
-      close(fd);
-      
-      printf(" ");
+      lstat(fileName, &buf);
+
+      f = fopen(fileName, "r");
+      if (f == NULL) {
+         fprintf(stderr, "Problem opening file\n");
+      } else {
+         printf("%d", strlen(fileName));
+         fwrite(fileName, sizeof(char), strlen(fileName), stdout);
+         fwrite(&buf, sizeof(struct stat), 1, stdout);
+         file = malloc(buf.st_size);
+         while(fread(file, 1, buf.st_size, f) > 0) {
+            fwrite(file, 1, buf.st_size, stdout);
+         }
+         if (file) free(file);
+         fclose(f);
+      }
       remove(fileName);
    }
    jrb_rtraverse(t, dirs) {
@@ -189,44 +185,91 @@ int createTar(int argc, char **argv, char print) {
 
 int extractTar(int argc, char **argv, char print) {
    IS is;
-   JRB tmp, dirs, files, hardLinks, inode;
-   char line[1000];
-   char *fileName;
-   off_t fileSize;
-   struct stat buf;
+   JRB tmp, dirs, inode;
+   char *fileName, *file;
+   char *linkName;
+   int fileNameLen;
+   int fileSize;
+   struct stat buf, *bufp;
    int fd;
    ino_t inodeNumber;
+   FILE *f;
+   struct utimbuf time;
 
-   dirs = make_jrb(); files = make_jrb(); inode = make_jrb(); hardLinks = make_jrb();
+   dirs = make_jrb(); inode = make_jrb();
 
    is = new_inputstruct(NULL);
 
-   while (get_line(is) >= 0) {
-      fileName = is->fields[0];
-      fileSize = atoi(is->fields[1]);
-      printf("Read Name: %s\nRead Size: %lld\n", fileName, fileSize);
+   while (fscanf(stdin, "%d", &fileNameLen)) {
+      memset(&buf, 0, sizeof(struct stat));
+      fileName = calloc(fileNameLen+1, sizeof(char));
+      fread(fileName, sizeof(char), fileNameLen, stdin);
+      if (strcmp(fileName, "") == 0) break;
+      
+      printf("Read fileNameLen: %d\n", fileNameLen);
+      printf("Read Name: %s\n", fileName);
+      
       fread(&buf, sizeof(struct stat), 1, stdin);
       printf("st_size: %lld\n", buf.st_size);
-      if (S_ISREG(buf.st_mode)) {
-         printf("%s is a regular file.\nRead contents of file\n", fileName);
-         fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-         //close(fd);
-      }
+      
       if (S_ISDIR(buf.st_mode)) {
          printf("%s is a directory\n", fileName);
+         
          mkdir(fileName, 0777);
-         jrb_insert_str(dirs, fileName, new_jval_v(buf));
-      }
-      inodeNumber = buf.st_ino;
-      if (jrb_find_int(inode, inodeNumber) == NULL) {
-         printf("   not found in inode\n");
-         jrb_insert_int(inode, inodeNumber, new_jval_i(inodeNumber));
-         jrb_insert_str(files, fileName, new_jval_v(buf));
-      } else {
-         printf("   This is a hardlink\n");
-      }
+         bufp = malloc(sizeof(struct stat));
+         memcpy(bufp, &buf, sizeof(struct stat));
+         jrb_insert_str(dirs, strdup(fileName), new_jval_v(bufp));
+      
+      } else if (S_ISREG(buf.st_mode)) {
+         printf("%s is a regular file.\nRead contents of file\n", fileName);
+         
+         if (jrb_find_int(inode, buf.st_ino) == NULL) {
+            printf("   not found in inode\n");
+            jrb_insert_int(inode, buf.st_ino, new_jval_s(fileName));
 
+            f = fopen(fileName, "w");
+            if (f == NULL) {
+               fprintf(stderr, "File cannot be opened for writing\n");
+               exit(1);
+            }
+
+            file = malloc(buf.st_size);
+            fread(file, sizeof(char), buf.st_size, stdin);
+            fwrite(file, sizeof(char), buf.st_size, f);
+            
+            if (file) free(file);
+            fclose(f);
+         } else {
+            linkName = malloc(sizeof(char) * 4096);
+            tmp = jrb_find_int(inode, buf.st_ino);
+            strcpy(linkName, tmp->val.s);
+            file = malloc(buf.st_size);
+            fread(file, sizeof(char), buf.st_size, stdin);
+            link(linkName, fileName);
+            if (linkName) free(linkName);
+            if (file) free(file);
+         }
+
+         chmod(fileName, buf.st_mode);
+         time.actime = buf.st_atime;
+         time.modtime = buf.st_mtime;
+         utime(fileName, &time);
+      }
    }
+
+   jrb_rtraverse(tmp, dirs) {
+      bufp = (struct stat *) tmp->val.s;
+      chmod(tmp->key.s, bufp->st_mode);
+      time.actime = bufp->st_atime;
+      time.modtime = bufp->st_mtime;
+      utime(tmp->key.s, &time);
+   }
+
+   if (fileName) free(fileName);
+   if (linkName) free(linkName);
+   jrb_traverse(tmp, dirs) if (dirs->key.s) free(tmp->key.s);
+   jrb_free_tree (inode);
+   jrb_free_tree (dirs);
    printf("Done reading tarfile\n");
 }
 
@@ -240,8 +283,6 @@ int process_files(char *s, Dllist d, Dllist p, char print) {
    char p1;
    Dllist tmp, ptmp;
    char *name;
-   
-//   if (print) fprintf(stderr, "Processing file: %s\n", s);
 
    // my fuck up insurance
    if (strcmp(s + strlen(s) - 6, "jtar.c") == 0) {
@@ -255,11 +296,8 @@ int process_files(char *s, Dllist d, Dllist p, char print) {
       printf("%s does not exist\n", s);
       return -1;
    } else {
-//      if (print) fprintf(stderr, "S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
-//      if (print) fprintf(stderr, "S_ISREG: %d\n", S_ISREG(buf.st_mode));
       if (S_ISDIR(buf.st_mode)) {
-//         if (print) fprintf(stderr, "  %s is a directory\n", s);
-         
+
          dir = opendir(s);
          if (dir == NULL) {
             perror("prsize");
@@ -270,27 +308,16 @@ int process_files(char *s, Dllist d, Dllist p, char print) {
 
          // iterate through the contents of the directory and add them to the dllist
          for (de = readdir(dir); de != NULL; de = readdir(dir)) {
-            
+
             sprintf(path, "%s/%s", s, de->d_name);
-//            if (print) fprintf(stderr, "    File: %s\n", de->d_name);
-//            if (print) fprintf(stderr, "    path: %s\n", path);
             rPath = strdup(path);
             exists = lstat(rPath, &buf);
-            
-//            if (print) fprintf(stderr, "    S_ISDIR: %d\n", S_ISDIR(buf.st_mode));
-//            if (print) fprintf(stderr, "    S_ISREG: %d\n", S_ISREG(buf.st_mode));
-            if (S_ISDIR(buf.st_mode)) {
-//               if (print) fprintf(stderr, "    %s is a directory\n", rPath);
-            } else {
-//               if (print) fprintf(stderr, "    %s is a file\n", rPath);
-            }
 
             if (exists < 0) {
                fprintf(stderr, "Couldn't stat %s\n", rPath);
                exit(1);
             } else if ((strcmp(de->d_name, ".") != 0) && (strcmp(de->d_name, "..") != 0)) {
                // ignore . and ..
-//               if (print) fprintf(stderr, "    try to add to dllist\n");
 
                // check if it already in the dllist
                p1 = 0;
@@ -304,11 +331,10 @@ int process_files(char *s, Dllist d, Dllist p, char print) {
                // if not, add it
                if (p1 == 0) {
                   dll_append(d, new_jval_s(rPath));
-//                  if (print) fprintf(stderr, "    adding %s to the dllist, d\n", rPath);
                }
 
             } else {
-//               if (print) fprintf(stderr, "    %s is skipped over\n", de->d_name);
+               //               if (print) fprintf(stderr, "    %s is skipped over\n", de->d_name);
             }
          }
 
@@ -324,15 +350,13 @@ int process_files(char *s, Dllist d, Dllist p, char print) {
                name = strdup(tmp->val.s);
 
                dll_append(p, new_jval_s(name));
-//               if (print) fprintf(stderr, "    adding %s to the dllist, d\n", name);
 
-//               if (print) fprintf(stderr, "    calling process_files() on %s\n", name);
                process_files(name, d, p, print);
             }
          }
       } else if (S_ISREG(buf.st_mode)) {
-//         if (print) fprintf(stderr, "  %s is a file\n", s);
-//         if (print) fprintf(stderr, "  do nothing\n");
+         //         if (print) fprintf(stderr, "  %s is a file\n", s);
+         //         if (print) fprintf(stderr, "  do nothing\n");
          return;
       } else {
          fprintf(stderr, "I SHOULD NOT SEE THIS AT ALL                        \n");
